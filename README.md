@@ -12,7 +12,7 @@ A **Kubernetes deployment** for **qBittorrent**, secured with **PIA VPN** and op
 ## 🛠 Installation
 
 ### 1️⃣ Clone the Repository
-git clone https://github.com/YOUR_GITHUB_USERNAME/qbittorrent-vpn-k8s.git  
+`git clone https://github.com/YOUR_GITHUB_USERNAME/qbittorrent-vpn-k8s.git`
 cd qbittorrent-vpn-k8s
 
 ### 2️⃣ Create Kubernetes Namespace

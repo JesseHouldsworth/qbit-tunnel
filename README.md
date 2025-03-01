@@ -13,6 +13,7 @@ A **Kubernetes deployment** for **qBittorrent**, secured with **PIA VPN** and op
 
 ### 1️⃣ Clone the Repository
 `git clone https://github.com/YOUR_GITHUB_USERNAME/qbittorrent-vpn-k8s.git`
+
 `cd qbittorrent-vpn-k8s`
 
 ### 2️⃣ Create Kubernetes Namespace
@@ -20,6 +21,7 @@ A **Kubernetes deployment** for **qBittorrent**, secured with **PIA VPN** and op
 
 ### 3️⃣ Create Secrets for PIA VPN & Tailscale
 `kubectl create secret generic pia-vpn-credentials -n vpn --from-literal=USER='your_pia_username' --from-literal=PASS='your_pia_password'`
+
 `kubectl create secret generic tailscale-auth -n vpn --from-literal=TAILSCALE_AUTH_KEY='your_tailscale_auth_key'`
 
 ### 4️⃣ Deploy qBittorrent + PIA VPN

@@ -1,0 +1,167 @@
+# Persistent Volume for qBittorrent Configuration Storage
+# This defines a persistent storage volume that stores qBittorrent's configuration files.
+# Change 'path' under 'hostPath' to match your host system's storage location.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: qbittorrent-config-pv
+  namespace: vpn  # Change this to match your Kubernetes namespace
+spec:
+  capacity:
+    storage: 10Gi  # Adjust storage size if needed
+  accessModes:
+    - ReadWriteOnce  # This volume can only be mounted as read-write by a single node
+  persistentVolumeReclaimPolicy: Retain  # Keeps the data even if PVC is deleted
+  storageClassName: local-path
+  hostPath:
+    path: /mnt/external-drive/qbittorrent-config  # CHANGE THIS: Make sure this path exists on the host
+
+---
+
+# Persistent Volume Claim for qBittorrent Configuration Storage
+# This PVC requests the storage defined above
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qbittorrent-config-pvc
+  namespace: vpn  # Change this to match your Kubernetes namespace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi  # Must match the PV storage size
+  storageClassName: local-path
+  volumeName: qbittorrent-config-pv  # Must match the PV name above
+
+---
+
+# Deployment for qBittorrent, PIA VPN, and Tailscale
+# This defines a Kubernetes deployment running qBittorrent behind a PIA VPN, with optional Tailscale access.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent-vpn
+  namespace: vpn  # Change this to match your Kubernetes namespace
+  labels:
+    app: qbittorrent-vpn
+spec:
+  replicas: 1  # Runs a single instance of qBittorrent behind the VPN
+  selector:
+    matchLabels:
+      app: qbittorrent-vpn
+  template:
+    metadata:
+      labels:
+        app: qbittorrent-vpn
+    spec:
+      containers:
+        # PIA VPN Container
+        - name: pia-vpn
+          image: thrnz/docker-wireguard-pia:latest
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN  # Allows the container to manage network settings
+          env:
+            - name: USER
+              valueFrom:
+                secretKeyRef:
+                  name: pia-vpn-credentials  # CHANGE THIS: Ensure the secret exists
+                  key: USER
+            - name: PASS
+              valueFrom:
+                secretKeyRef:
+                  name: pia-vpn-credentials  # CHANGE THIS: Ensure the secret exists
+                  key: PASS
+            - name: LOC
+              value: "us_california"  # CHANGE THIS: Set your preferred PIA server location
+            - name: PORT_FORWARDING
+              value: "1"  # Enables PIA port forwarding
+            - name: VPN_INTERFACE
+              value: "wg0"
+            - name: KILLSWITCH
+              value: "1"  # Ensures all traffic is forced through VPN
+            - name: FIREWALL
+              value: "1"  # Blocks non-VPN traffic
+            - name: ALLOWED_INBOUND_PORTS
+              value: "8080,6881"  # Allows WebUI and BitTorrent traffic
+            - name: LAN_NETWORK
+              value: "192.168.68.0/22,10.43.0.0/16,100.64.0.0/10"  # CHANGE THIS: Update for your LAN/Tailscale subnets
+          volumeMounts:
+            - name: config
+              mountPath: /config  # Maps config volume
+
+        # qBittorrent Container
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:latest
+          securityContext:
+            capabilities:
+              add:
+                - NET_ADMIN  # Needed for network settings
+          env:
+            - name: PUID
+              value: "1000"  # CHANGE THIS: Set to your user ID
+            - name: PGID
+              value: "1000"  # CHANGE THIS: Set to your group ID
+            - name: UMASK
+              value: "002"
+            - name: WEBUI_PORT
+              value: "8080"  # Web UI port
+            - name: QBT_WEBUI_AUTH_SUBNET_WHITELIST_ENABLED
+              value: "false"
+            - name: QBT_WEBUI_LOCALHOST_AUTH
+              value: "false"
+          ports:
+            - containerPort: 8080  # Web UI
+              name: webui
+            - containerPort: 6881  # BitTorrent TCP traffic
+              name: torrent-tcp
+              protocol: TCP
+            - containerPort: 6881  # BitTorrent UDP traffic
+              name: torrent-udp
+              protocol: UDP
+          volumeMounts:
+            - name: config
+              mountPath: /config  # Maps config volume
+            - name: downloads
+              mountPath: /downloads  # Maps downloads volume
+
+        # Tailscale Container (Optional)
+        - name: tailscale
+          image: tailscale/tailscale
+          command:
+            - /bin/sh
+            - -c
+            - |
+              tailscaled --tun=userspace-networking --state=/var/lib/tailscale/tailscaled.state &
+              sleep 5
+              tailscale up --authkey="${TAILSCALE_AUTH_KEY}" --hostname=qbittorrent-vpn
+              tail -f /dev/null
+          env:
+            - name: TAILSCALE_AUTH_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tailscale-auth  # CHANGE THIS: Ensure the secret exists
+                  key: TAILSCALE_AUTH_KEY
+          volumeMounts:
+            - name: tailscale-state
+              mountPath: /var/lib/tailscale  # Persistent storage for Tailscale state
+
+      volumes:
+        # Config Volume (Persistent)
+        - name: config
+          persistentVolumeClaim:
+            claimName: qbittorrent-config-pvc  # Matches the PVC defined earlier
+
+        # Downloads Volume (Host Storage)
+        - name: downloads
+          hostPath:
+            path: /mnt/external-drive/downloads  # CHANGE THIS: Ensure the path exists on the host
+            type: DirectoryOrCreate
+
+        # Tailscale State Volume (Persistent)
+        - name: tailscale-state
+          persistentVolumeClaim:
+            claimName: tailscale-state-pvc  # Ensure this PVC exists
+

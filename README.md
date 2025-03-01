@@ -13,20 +13,20 @@ A **Kubernetes deployment** for **qBittorrent**, secured with **PIA VPN** and op
 
 ### 1️⃣ Clone the Repository
 `git clone https://github.com/YOUR_GITHUB_USERNAME/qbittorrent-vpn-k8s.git`
-cd qbittorrent-vpn-k8s
+`cd qbittorrent-vpn-k8s`
 
 ### 2️⃣ Create Kubernetes Namespace
-kubectl create namespace vpn
+`kubectl create namespace vpn`
 
 ### 3️⃣ Create Secrets for PIA VPN & Tailscale
-kubectl create secret generic pia-vpn-credentials -n vpn --from-literal=USER='your_pia_username' --from-literal=PASS='your_pia_password'  
-kubectl create secret generic tailscale-auth -n vpn --from-literal=TAILSCALE_AUTH_KEY='your_tailscale_auth_key'
+`kubectl create secret generic pia-vpn-credentials -n vpn --from-literal=USER='your_pia_username' --from-literal=PASS='your_pia_password'`
+`kubectl create secret generic tailscale-auth -n vpn --from-literal=TAILSCALE_AUTH_KEY='your_tailscale_auth_key'`
 
 ### 4️⃣ Deploy qBittorrent + PIA VPN
-kubectl apply -f qbittorrent.yaml
+`kubectl apply -f qbittorrent.yaml`
 
 ### 5️⃣ Verify Deployment
-kubectl get pods -n vpn
+`kubectl get pods -n vpn`
 
 ## 🌐 Accessing qBittorrent Web UI
 1. **Via LAN**:  
@@ -59,10 +59,10 @@ _Default credentials (change after login)_:
 ## 🛠 Troubleshooting
 
 ### Check Pod Logs
-kubectl logs -n vpn -l app=qbittorrent-vpn
+`kubectl logs -n vpn -l app=qbittorrent-vpn`
 
 ### Verify VPN Connectivity
-kubectl exec -n vpn -it $(kubectl get pod -n vpn -l app=qbittorrent-vpn -o jsonpath="{.items[0].metadata.name}") -- curl -s https://ifconfig.me
+`kubectl exec -n vpn -it $(kubectl get pod -n vpn -l app=qbittorrent-vpn -o jsonpath="{.items[0].metadata.name}") -- curl -s https://ifconfig.me`
 
 • If the output matches PIA’s IP, VPN is working.  
 • If it shows your real IP, traffic is leaking.
@@ -74,7 +74,7 @@ kubectl exec -n vpn -it $(kubectl get pod -n vpn -l app=qbittorrent-vpn -o jsonp
 • Check Sonarr logs under “System → Logs”
 
 ### Restart qBittorrent
-kubectl delete pod -n vpn $(kubectl get pod -n vpn -l app=qbittorrent-vpn -o jsonpath="{.items[0].metadata.name}")
+`kubectl delete pod -n vpn $(kubectl get pod -n vpn -l app=qbittorrent-vpn -o jsonpath="{.items[0].metadata.name}")`
 
 ## 📜 License
 This project is licensed under the **MIT License**.
